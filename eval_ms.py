@@ -1,4 +1,6 @@
 import argparse
+import re
+
 import jsonlines
 
 
@@ -26,7 +28,22 @@ def eval_mbpp(args):
     save_jsonl(output, args.output)
 
 def eval_gsm(args):
-    pass
+    output = []
+    with jsonlines.open(args.input, "r") as reader:
+        for line in reader:
+            ref = line["answer"].split("####")[1].strip()
+            try:
+                hyp = re.search(r"#\d*#", line["response_text"])[0].replace("#", "").strip()
+                if ref == hyp:
+                    line["correctness"] = "correct"
+                else:
+                    line["correctness"] = "incorrect"
+            except:
+                line["correctness"] = "incorrect"
+            line["total_throughput"] = line["total_tokens"] * 1000 / line["latency"]
+            line["completion_thoroughput"] = line["completion_tokens"] * 1000 / line["latency"]
+            output.append(line)
+    save_jsonl(output, args.output)
 
 def main(args):
     if args.dataset == "mbpp":
