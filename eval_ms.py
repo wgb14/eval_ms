@@ -14,6 +14,9 @@ def eval_mbpp(args):
         for line in reader:
             line["correctness"] = []
             code = f"{line['response_text']}\n"
+            if "```" in code:
+                code = re.search(r"```.*?```", code, re.DOTALL)[0].replace("```", "").strip()
+                code += "\n"
             for item in line["test_list"]:
                 code_to_run = code + f"{item}\n"
                 try:
