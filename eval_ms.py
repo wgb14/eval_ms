@@ -1,8 +1,15 @@
 import argparse
 import re
+import signal
 
 import jsonlines
 
+
+class TimeoutError(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutError()
 
 def save_jsonl(data, path):
     with jsonlines.open(path, "w") as writer:
@@ -19,14 +26,20 @@ def eval_mbpp(args):
                 code += "\n"
             for item in line["test_list"]:
                 code_to_run = code + f"{item}\n"
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(1)
                 try:
                     exec(code_to_run)
                     line["correctness"].append("correct")
                 except:
                     line["correctness"].append("incorrect")
+                finally:
+                    signal.alarm(0)
+
             line["accuracy"] = sum([1 if x == "correct" else 0 for x in line["correctness"]]) / len(line["correctness"])
-            line["total_throughput"] = line["total_tokens"] * 1000 / line["latency"]
-            line["completion_thoroughput"] = line["completion_tokens"] * 1000 / line["latency"]
+            line["latency"] = line["latency"] / 1000
+            line["total_throughput"] = line["total_tokens"] / line["latency"]
+            line["completion_thoroughput"] = line["completion_tokens"] / line["latency"]
             output.append(line)
     save_jsonl(output, args.output)
 
@@ -43,8 +56,9 @@ def eval_gsm(args):
                     line["correctness"] = "incorrect"
             except:
                 line["correctness"] = "incorrect"
-            line["total_throughput"] = line["total_tokens"] * 1000 / line["latency"]
-            line["completion_thoroughput"] = line["completion_tokens"] * 1000 / line["latency"]
+            line["latency"] = line["latency"] / 1000
+            line["total_throughput"] = line["total_tokens"] / line["latency"]
+            line["completion_thoroughput"] = line["completion_tokens"] / line["latency"]
             output.append(line)
     save_jsonl(output, args.output)
 
